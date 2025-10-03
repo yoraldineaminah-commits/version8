@@ -1,5 +1,6 @@
 package com.internship.management.controller;
 
+import com.internship.management.dto.ApiResponse;
 import com.internship.management.dto.DashboardDTO;
 import com.internship.management.service.DashboardService;
 import lombok.RequiredArgsConstructor;
@@ -17,29 +18,29 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/metrics")
-    public ResponseEntity<DashboardDTO.DashboardMetrics> getMetrics(
+    public ResponseEntity<ApiResponse<DashboardDTO.DashboardMetrics>> getMetrics(
             @RequestParam Long userId
     ) {
         try {
             DashboardDTO.DashboardMetrics metrics = dashboardService.getMetrics(userId);
-            return ResponseEntity.ok(metrics);
+            return ResponseEntity.ok(ApiResponse.success(metrics));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @GetMapping("/departments")
-    public ResponseEntity<List<DashboardDTO.DepartmentStats>> getDepartmentStats() {
-        return ResponseEntity.ok(dashboardService.getDepartmentStats());
+    public ResponseEntity<ApiResponse<List<DashboardDTO.DepartmentStats>>> getDepartmentStats() {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getDepartmentStats()));
     }
 
     @GetMapping("/project-status")
-    public ResponseEntity<DashboardDTO.ProjectStatusStats> getProjectStatusStats() {
-        return ResponseEntity.ok(dashboardService.getProjectStatusStats());
+    public ResponseEntity<ApiResponse<DashboardDTO.ProjectStatusStats>> getProjectStatusStats() {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getProjectStatusStats()));
     }
 
     @GetMapping("/task-stats")
-    public ResponseEntity<DashboardDTO.TaskStats> getTaskStats() {
-        return ResponseEntity.ok(dashboardService.getTaskStats());
+    public ResponseEntity<ApiResponse<DashboardDTO.TaskStats>> getTaskStats() {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getTaskStats()));
     }
 }

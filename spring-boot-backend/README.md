@@ -64,46 +64,103 @@ mvn spring-boot:run
 
 L'API sera accessible sur `http://localhost:8080/api`
 
-## Flux d'Authentification Personnalisé
+## Format des Réponses API
 
-### Processus d'inscription pour les stagiaires
+Toutes les réponses de l'API suivent un format standardisé :
 
-1. **L'encadreur crée un stagiaire** via `POST /api/interns`
-   - Les informations sont stockées dans la base de données
-   - Le compte est en statut `PENDING` (sans mot de passe)
+### Réponse Succès
+```json
+{
+  "success": true,
+  "message": "Message descriptif (optionnel)",
+  "data": { /* données de réponse */ },
+  "error": null
+}
+```
 
-2. **Le stagiaire accède à la page de connexion**
-   - Il saisit son email via `POST /api/auth/check-email`
-   - Le système vérifie si l'email existe
+### Réponse Erreur
+```json
+{
+  "success": false,
+  "message": null,
+  "data": null,
+  "error": "Message d'erreur détaillé"
+}
+```
 
-3. **Si l'email existe et n'a pas de mot de passe**
-   - Le système retourne `{ "exists": true, "hasPassword": false }`
-   - Le stagiaire est redirigé vers la page de création de mot de passe
+## Documentation Complète de l'API
 
-4. **Le stagiaire crée son mot de passe** via `POST /api/auth/create-password`
-   - Le mot de passe est hashé et stocké
-   - Le compte passe en statut `ACTIVE`
-   - Un token JWT est retourné
-   - Le stagiaire est connecté automatiquement
+### 🔐 Authentification
 
-5. **Connexions futures** via `POST /api/auth/login`
-   - Connexion classique avec email et mot de passe
+Tous les endpoints publics d'authentification ne nécessitent pas de token JWT.
 
-## Endpoints API
+#### 1. Initialiser le compte Admin par défaut
 
-### Authentification
+**Endpoint:** `POST /api/auth/init-admin`
 
-#### Vérifier un email
-```http
-POST /api/auth/check-email
-Content-Type: application/json
+**Description:** Crée le compte administrateur par défaut. À exécuter une seule fois lors de l'initialisation du système.
 
+**Corps de la requête:**
+```json
+{}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Admin par défaut initialisé",
+  "data": {
+    "id": 1,
+    "email": "admin@internship.com",
+    "nom": "Admin",
+    "prenom": "System",
+    "phone": "+212600000000",
+    "department": "IT",
+    "role": "ADMIN",
+    "accountStatus": "ACTIVE",
+    "avatar": null
+  }
+}
+```
+
+**Credentials créés:**
+- Email: `admin@internship.com`
+- Password: `Admin@2024`
+
+**Réponse Erreur (400):**
+```json
+{
+  "success": false,
+  "error": "Le compte admin par défaut existe déjà"
+}
+```
+
+---
+
+#### 2. Vérifier un Email
+
+**Endpoint:** `POST /api/auth/check-email`
+
+**Description:** Vérifie si un email existe dans le système et s'il a déjà un mot de passe.
+
+**Corps de la requête:**
+```json
 {
   "email": "stagiaire@example.com"
 }
 ```
 
-Réponse :
+**Réponse (200 OK) - Email existe avec mot de passe:**
+```json
+{
+  "exists": true,
+  "hasPassword": true,
+  "message": "Compte déjà activé. Veuillez vous connecter."
+}
+```
+
+**Réponse (200 OK) - Email existe sans mot de passe:**
 ```json
 {
   "exists": true,
@@ -112,198 +169,1037 @@ Réponse :
 }
 ```
 
-#### Créer un mot de passe
-```http
-POST /api/auth/create-password
-Content-Type: application/json
+**Réponse (200 OK) - Email n'existe pas:**
+```json
+{
+  "exists": false,
+  "hasPassword": false,
+  "message": "Email non trouvé dans le système"
+}
+```
 
+---
+
+#### 3. Créer un Mot de Passe
+
+**Endpoint:** `POST /api/auth/create-password`
+
+**Description:** Permet à un utilisateur (généralement un stagiaire) de créer son mot de passe pour activer son compte.
+
+**Corps de la requête:**
+```json
 {
   "email": "stagiaire@example.com",
   "password": "MonMotDePasse123!"
 }
 ```
 
-Réponse :
+**Réponse (200 OK):**
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": 3,
     "email": "stagiaire@example.com",
-    "firstName": "Marie",
-    "lastName": "Martin",
+    "nom": "Martin",
+    "prenom": "Marie",
+    "phone": "0687654321",
+    "department": "Informatique",
     "role": "STAGIAIRE",
-    "accountStatus": "ACTIVE"
+    "accountStatus": "ACTIVE",
+    "avatar": null
   }
 }
 ```
 
-#### Se connecter
-```http
-POST /api/auth/login
-Content-Type: application/json
+**Réponses Erreur:**
+- `400`: Email non trouvé ou compte déjà activé
 
+---
+
+#### 4. Se Connecter
+
+**Endpoint:** `POST /api/auth/login`
+
+**Description:** Authentifie un utilisateur avec email et mot de passe.
+
+**Corps de la requête:**
+```json
 {
-  "email": "stagiaire@example.com",
-  "password": "MonMotDePasse123!"
+  "email": "admin@internship.com",
+  "password": "Admin@2024"
 }
 ```
 
-Réponse : même format que create-password
-
-### Gestion des Stagiaires
-
-#### Créer un stagiaire (réservé aux encadreurs)
-```http
-POST /api/interns
-Authorization: Bearer {token}
-Content-Type: application/json
-
+**Réponse (200 OK):**
+```json
 {
-  "email": "nouveau@example.com",
-  "firstName": "Pierre",
-  "lastName": "Dubois",
-  "phone": "0612345678",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "email": "admin@internship.com",
+    "nom": "Admin",
+    "prenom": "System",
+    "phone": "+212600000000",
+    "department": "IT",
+    "role": "ADMIN",
+    "accountStatus": "ACTIVE",
+    "avatar": null
+  }
+}
+```
+
+**Réponses Erreur:**
+- `400`: Email ou mot de passe incorrect
+- `400`: Compte non activé
+- `400`: Compte désactivé
+
+---
+
+#### 5. Créer un Admin
+
+**Endpoint:** `POST /api/auth/register/admin`
+
+**Description:** Crée un nouveau compte administrateur.
+
+**Corps de la requête:**
+```json
+{
+  "email": "admin2@example.com",
+  "password": "SecurePassword123!",
+  "nom": "Dupont",
+  "prenom": "Jean",
+  "phone": "+212600000001",
+  "departement": "IT"
+}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Admin créé avec succès",
+  "data": {
+    "id": 2,
+    "email": "admin2@example.com",
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "phone": "+212600000001",
+    "department": "IT",
+    "role": "ADMIN",
+    "accountStatus": "ACTIVE",
+    "avatar": null
+  }
+}
+```
+
+---
+
+#### 6. Créer un Encadreur
+
+**Endpoint:** `POST /api/auth/register/encadreur`
+
+**Description:** Crée un nouveau compte encadreur (sans mot de passe initial).
+
+**Corps de la requête:**
+```json
+{
+  "email": "encadreur@example.com",
+  "nom": "Dubois",
+  "prenom": "Pierre",
+  "phone": "+212600000002",
+  "departement": "Informatique",
+  "specialization": "Développement Web"
+}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Encadreur créé avec succès",
+  "data": {
+    "id": 3,
+    "email": "encadreur@example.com",
+    "nom": "Dubois",
+    "prenom": "Pierre",
+    "phone": "+212600000002",
+    "department": "Informatique",
+    "role": "ENCADREUR",
+    "accountStatus": "PENDING",
+    "avatar": null
+  }
+}
+```
+
+---
+
+#### 7. Créer un Stagiaire
+
+**Endpoint:** `POST /api/auth/register/stagiaire`
+
+**Description:** Crée un nouveau compte stagiaire (sans mot de passe initial).
+
+**Corps de la requête:**
+```json
+{
+  "email": "stagiaire@example.com",
+  "nom": "Martin",
+  "prenom": "Marie",
+  "phone": "+212600000003",
+  "departement": "Informatique",
   "school": "Université Paris",
-  "department": "Informatique",
+  "major": "Informatique",
   "startDate": "2025-01-15",
   "endDate": "2025-06-15",
   "encadreurId": 1
 }
 ```
 
-#### Récupérer tous les stagiaires
-```http
-GET /api/interns
-Authorization: Bearer {token}
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Stagiaire créé avec succès",
+  "data": {
+    "id": 4,
+    "email": "stagiaire@example.com",
+    "nom": "Martin",
+    "prenom": "Marie",
+    "phone": "+212600000003",
+    "department": "Informatique",
+    "role": "STAGIAIRE",
+    "accountStatus": "PENDING",
+    "avatar": null
+  }
+}
 ```
 
-#### Récupérer un stagiaire par ID
-```http
-GET /api/interns/{id}
-Authorization: Bearer {token}
+---
+
+### 👥 Encadreurs
+
+**Tous les endpoints nécessitent un token JWT:** `Authorization: Bearer {token}`
+
+#### 1. Récupérer tous les Encadreurs
+
+**Endpoint:** `GET /api/encadreurs`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "email": "encadreur@example.com",
+      "nom": "Dubois",
+      "prenom": "Pierre",
+      "phone": "+212600000002",
+      "department": "Informatique",
+      "role": "ENCADREUR",
+      "accountStatus": "ACTIVE",
+      "avatar": null
+    }
+  ]
+}
 ```
 
-#### Supprimer un stagiaire
-```http
-DELETE /api/interns/{id}
-Authorization: Bearer {token}
+---
+
+#### 2. Récupérer un Encadreur par ID
+
+**Endpoint:** `GET /api/encadreurs/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "email": "encadreur@example.com",
+    "nom": "Dubois",
+    "prenom": "Pierre",
+    "phone": "+212600000002",
+    "department": "Informatique",
+    "role": "ENCADREUR",
+    "accountStatus": "ACTIVE",
+    "avatar": null
+  }
+}
 ```
 
-## Structure de la Base de Données
+**Réponse Erreur (404):**
+```json
+{
+  "success": false,
+  "error": "Encadreur non trouvé"
+}
+```
 
-### Table `users`
-- Stocke tous les utilisateurs (Admin, Encadreur, Stagiaire)
-- Champs : id, email, firstName, lastName, password, role, accountStatus, phone, avatar
+---
 
-### Table `encadreurs`
-- Informations spécifiques aux encadreurs
-- Relation OneToOne avec users
+#### 3. Récupérer les Stagiaires d'un Encadreur
 
-### Table `interns`
-- Informations spécifiques aux stagiaires
-- Relation OneToOne avec users
-- Relation ManyToOne avec encadreurs et projects
+**Endpoint:** `GET /api/encadreurs/{id}/interns`
 
-### Table `projects`
-- Projets de stage
-- Relation ManyToOne avec encadreurs
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "userId": 4,
+      "email": "stagiaire@example.com",
+      "nom": "Martin",
+      "prenom": "Marie",
+      "phone": "+212600000003",
+      "school": "Université Paris",
+      "department": "Informatique",
+      "startDate": "2025-01-15",
+      "endDate": "2025-06-15",
+      "status": "ACTIVE",
+      "encadreurId": 1,
+      "projectId": null,
+      "cv": null,
+      "notes": null
+    }
+  ]
+}
+```
 
-### Table `tasks`
-- Tâches associées aux projets
-- Relation ManyToOne avec projects et users
+---
 
-## Sécurité
+#### 4. Compter les Stagiaires d'un Encadreur
+
+**Endpoint:** `GET /api/encadreurs/{id}/intern-count`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": 5
+}
+```
+
+---
+
+#### 5. Modifier un Encadreur
+
+**Endpoint:** `PUT /api/encadreurs/{id}`
+
+**Corps de la requête:**
+```json
+{
+  "nom": "Dubois",
+  "prenom": "Pierre",
+  "phone": "+212600000099",
+  "department": "Ressources Humaines"
+}
+```
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Encadreur mis à jour avec succès",
+  "data": {
+    "id": 1,
+    "email": "encadreur@example.com",
+    "nom": "Dubois",
+    "prenom": "Pierre",
+    "phone": "+212600000099",
+    "department": "Ressources Humaines",
+    "role": "ENCADREUR",
+    "accountStatus": "ACTIVE",
+    "avatar": null
+  }
+}
+```
+
+---
+
+#### 6. Supprimer un Encadreur
+
+**Endpoint:** `DELETE /api/encadreurs/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Encadreur supprimé avec succès",
+  "data": null
+}
+```
+
+---
+
+### 🎓 Stagiaires
+
+**Tous les endpoints nécessitent un token JWT:** `Authorization: Bearer {token}`
+
+#### 1. Créer un Stagiaire
+
+**Endpoint:** `POST /api/interns`
+
+**Corps de la requête:**
+```json
+{
+  "email": "nouveau@example.com",
+  "firstName": "Thomas",
+  "lastName": "Bernard",
+  "phone": "+212600000004",
+  "school": "ENSA",
+  "department": "Génie Logiciel",
+  "startDate": "2025-02-01",
+  "endDate": "2025-07-01",
+  "encadreurId": 1
+}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Stagiaire créé avec succès",
+  "data": {
+    "id": 2,
+    "userId": 5,
+    "email": "nouveau@example.com",
+    "nom": "Bernard",
+    "prenom": "Thomas",
+    "phone": "+212600000004",
+    "school": "ENSA",
+    "department": "Génie Logiciel",
+    "startDate": "2025-02-01",
+    "endDate": "2025-07-01",
+    "status": "PENDING",
+    "encadreurId": 1,
+    "projectId": null,
+    "cv": null,
+    "notes": null
+  }
+}
+```
+
+---
+
+#### 2. Récupérer tous les Stagiaires
+
+**Endpoint:** `GET /api/interns`
+
+**Paramètres optionnels:**
+- `encadreurId`: Filtrer par encadreur
+- `department`: Filtrer par département
+- `status`: Filtrer par statut (PENDING, ACTIVE, COMPLETED, CANCELLED)
+
+**Exemples:**
+- `GET /api/interns`
+- `GET /api/interns?encadreurId=1`
+- `GET /api/interns?department=Informatique`
+- `GET /api/interns?status=ACTIVE`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "userId": 4,
+      "email": "stagiaire@example.com",
+      "nom": "Martin",
+      "prenom": "Marie",
+      "phone": "+212600000003",
+      "school": "Université Paris",
+      "department": "Informatique",
+      "startDate": "2025-01-15",
+      "endDate": "2025-06-15",
+      "status": "ACTIVE",
+      "encadreurId": 1,
+      "projectId": null,
+      "cv": null,
+      "notes": null
+    }
+  ]
+}
+```
+
+---
+
+#### 3. Récupérer un Stagiaire par ID
+
+**Endpoint:** `GET /api/interns/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "userId": 4,
+    "email": "stagiaire@example.com",
+    "nom": "Martin",
+    "prenom": "Marie",
+    "phone": "+212600000003",
+    "school": "Université Paris",
+    "department": "Informatique",
+    "startDate": "2025-01-15",
+    "endDate": "2025-06-15",
+    "status": "ACTIVE",
+    "encadreurId": 1,
+    "projectId": null,
+    "cv": null,
+    "notes": null
+  }
+}
+```
+
+---
+
+#### 4. Modifier un Stagiaire
+
+**Endpoint:** `PUT /api/interns/{id}`
+
+**Corps de la requête:**
+```json
+{
+  "phone": "+212600000999",
+  "school": "Nouvelle École",
+  "department": "Data Science",
+  "startDate": "2025-01-15",
+  "endDate": "2025-08-15",
+  "encadreurId": 2
+}
+```
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Stagiaire mis à jour avec succès",
+  "data": { /* données mises à jour */ }
+}
+```
+
+---
+
+#### 5. Mettre à jour le Statut d'un Stagiaire
+
+**Endpoint:** `PATCH /api/interns/{id}/status`
+
+**Corps de la requête:**
+```json
+{
+  "status": "ACTIVE"
+}
+```
+
+**Valeurs possibles:** PENDING, ACTIVE, COMPLETED, CANCELLED
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Statut mis à jour avec succès",
+  "data": { /* données mises à jour */ }
+}
+```
+
+---
+
+#### 6. Supprimer un Stagiaire
+
+**Endpoint:** `DELETE /api/interns/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Stagiaire supprimé avec succès",
+  "data": null
+}
+```
+
+---
+
+### 📋 Projets
+
+**Tous les endpoints nécessitent un token JWT:** `Authorization: Bearer {token}`
+
+#### 1. Récupérer tous les Projets
+
+**Endpoint:** `GET /api/projects`
+
+**Paramètres optionnels:**
+- `encadreurId`: Filtrer par encadreur
+- `stagiaireId`: Filtrer par stagiaire
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "Application Mobile",
+      "description": "Développement d'une app mobile",
+      "encadreurId": 1,
+      "startDate": "2025-01-15",
+      "endDate": "2025-06-15",
+      "status": "IN_PROGRESS",
+      "progress": 45,
+      "department": "Informatique"
+    }
+  ]
+}
+```
+
+---
+
+#### 2. Récupérer un Projet par ID
+
+**Endpoint:** `GET /api/projects/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "Application Mobile",
+    "description": "Développement d'une app mobile",
+    "encadreurId": 1,
+    "startDate": "2025-01-15",
+    "endDate": "2025-06-15",
+    "status": "IN_PROGRESS",
+    "progress": 45,
+    "department": "Informatique"
+  }
+}
+```
+
+---
+
+#### 3. Créer un Projet
+
+**Endpoint:** `POST /api/projects`
+
+**Corps de la requête:**
+```json
+{
+  "title": "Système de Gestion",
+  "description": "Développement d'un système de gestion",
+  "encadreurId": 1,
+  "startDate": "2025-03-01",
+  "endDate": "2025-08-01",
+  "status": "PLANNING",
+  "progress": 0,
+  "department": "Informatique"
+}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Projet créé avec succès",
+  "data": {
+    "id": 2,
+    "title": "Système de Gestion",
+    "description": "Développement d'un système de gestion",
+    "encadreurId": 1,
+    "startDate": "2025-03-01",
+    "endDate": "2025-08-01",
+    "status": "PLANNING",
+    "progress": 0,
+    "department": "Informatique"
+  }
+}
+```
+
+---
+
+#### 4. Modifier un Projet
+
+**Endpoint:** `PUT /api/projects/{id}`
+
+**Corps de la requête:**
+```json
+{
+  "title": "Système de Gestion - Mis à jour",
+  "description": "Description mise à jour",
+  "status": "IN_PROGRESS",
+  "progress": 30
+}
+```
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Projet mis à jour avec succès",
+  "data": { /* données mises à jour */ }
+}
+```
+
+---
+
+#### 5. Assigner des Stagiaires à un Projet
+
+**Endpoint:** `POST /api/projects/{id}/assign-interns`
+
+**Corps de la requête:**
+```json
+{
+  "internIds": [1, 2, 3]
+}
+```
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Stagiaires assignés avec succès",
+  "data": { /* projet mis à jour */ }
+}
+```
+
+---
+
+#### 6. Supprimer un Projet
+
+**Endpoint:** `DELETE /api/projects/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Projet supprimé avec succès",
+  "data": null
+}
+```
+
+---
+
+### ✅ Tâches
+
+**Tous les endpoints nécessitent un token JWT:** `Authorization: Bearer {token}`
+
+#### 1. Récupérer toutes les Tâches
+
+**Endpoint:** `GET /api/tasks`
+
+**Paramètres optionnels:**
+- `projectId`: Filtrer par projet
+- `userId`: Filtrer par utilisateur assigné
+- `status`: Filtrer par statut (TODO, IN_PROGRESS, DONE)
+
+**Exemples:**
+- `GET /api/tasks`
+- `GET /api/tasks?projectId=1`
+- `GET /api/tasks?userId=4`
+- `GET /api/tasks?status=IN_PROGRESS`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "Créer la base de données",
+      "description": "Mettre en place le schéma de la base",
+      "projectId": 1,
+      "assignedTo": 4,
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "dueDate": "2025-02-01"
+    }
+  ]
+}
+```
+
+---
+
+#### 2. Récupérer une Tâche par ID
+
+**Endpoint:** `GET /api/tasks/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "Créer la base de données",
+    "description": "Mettre en place le schéma de la base",
+    "projectId": 1,
+    "assignedTo": 4,
+    "status": "IN_PROGRESS",
+    "priority": "HIGH",
+    "dueDate": "2025-02-01"
+  }
+}
+```
+
+---
+
+#### 3. Créer une Tâche
+
+**Endpoint:** `POST /api/tasks`
+
+**Corps de la requête:**
+```json
+{
+  "title": "Développer l'interface utilisateur",
+  "description": "Créer les composants React",
+  "projectId": 1,
+  "assignedTo": 4,
+  "status": "TODO",
+  "priority": "MEDIUM",
+  "dueDate": "2025-02-15"
+}
+```
+
+**Réponse (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Tâche créée avec succès",
+  "data": {
+    "id": 2,
+    "title": "Développer l'interface utilisateur",
+    "description": "Créer les composants React",
+    "projectId": 1,
+    "assignedTo": 4,
+    "status": "TODO",
+    "priority": "MEDIUM",
+    "dueDate": "2025-02-15"
+  }
+}
+```
+
+---
+
+#### 4. Modifier une Tâche
+
+**Endpoint:** `PUT /api/tasks/{id}`
+
+**Corps de la requête:**
+```json
+{
+  "title": "Développer l'interface utilisateur - Mis à jour",
+  "description": "Créer tous les composants React nécessaires",
+  "status": "IN_PROGRESS",
+  "priority": "HIGH"
+}
+```
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Tâche mise à jour avec succès",
+  "data": { /* données mises à jour */ }
+}
+```
+
+---
+
+#### 5. Mettre à jour le Statut d'une Tâche
+
+**Endpoint:** `PATCH /api/tasks/{id}/status`
+
+**Corps de la requête:**
+```json
+{
+  "status": "DONE"
+}
+```
+
+**Valeurs possibles:** TODO, IN_PROGRESS, DONE
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Statut mis à jour avec succès",
+  "data": { /* données mises à jour */ }
+}
+```
+
+---
+
+#### 6. Supprimer une Tâche
+
+**Endpoint:** `DELETE /api/tasks/{id}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Tâche supprimée avec succès",
+  "data": null
+}
+```
+
+---
+
+### 📊 Dashboard
+
+**Tous les endpoints nécessitent un token JWT:** `Authorization: Bearer {token}`
+
+#### 1. Récupérer les Métriques du Dashboard
+
+**Endpoint:** `GET /api/dashboard/metrics?userId={userId}`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "totalInterns": 15,
+    "activeProjects": 8,
+    "completedTasks": 45,
+    "pendingTasks": 23
+  }
+}
+```
+
+---
+
+#### 2. Récupérer les Statistiques par Département
+
+**Endpoint:** `GET /api/dashboard/departments`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "department": "Informatique",
+      "count": 10
+    },
+    {
+      "department": "Ressources Humaines",
+      "count": 5
+    }
+  ]
+}
+```
+
+---
+
+#### 3. Récupérer les Statistiques de Statut des Projets
+
+**Endpoint:** `GET /api/dashboard/project-status`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "planning": 3,
+    "inProgress": 5,
+    "completed": 2,
+    "onHold": 1,
+    "cancelled": 0
+  }
+}
+```
+
+---
+
+#### 4. Récupérer les Statistiques des Tâches
+
+**Endpoint:** `GET /api/dashboard/task-stats`
+
+**Réponse (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "todo": 15,
+    "inProgress": 10,
+    "done": 25
+  }
+}
+```
+
+---
+
+## 🧪 Tests avec Postman
+
+Une collection Postman complète est disponible dans `POSTMAN_COLLECTION.json`.
+
+### Import de la Collection
+
+1. Ouvrez Postman
+2. Cliquez sur **Import**
+3. Sélectionnez le fichier `POSTMAN_COLLECTION.json`
+4. La collection sera importée avec tous les endpoints
+
+### Variables d'Environnement
+
+Créez un environnement Postman avec les variables suivantes :
+
+```
+base_url = http://localhost:8080/api
+token = (sera rempli automatiquement après login)
+```
+
+### Flux de Test Recommandé
+
+1. **Initialiser le système**
+   - `POST /api/auth/init-admin`
+
+2. **Se connecter en tant qu'Admin**
+   - `POST /api/auth/login`
+   - Le token sera automatiquement sauvegardé
+
+3. **Créer un Encadreur**
+   - `POST /api/auth/register/encadreur`
+
+4. **Créer un Stagiaire**
+   - `POST /api/auth/register/stagiaire`
+
+5. **Le Stagiaire vérifie son email**
+   - `POST /api/auth/check-email`
+
+6. **Le Stagiaire crée son mot de passe**
+   - `POST /api/auth/create-password`
+
+7. **Créer un Projet**
+   - `POST /api/projects`
+
+8. **Créer des Tâches**
+   - `POST /api/tasks`
+
+9. **Assigner des Stagiaires au Projet**
+   - `POST /api/projects/{id}/assign-interns`
+
+10. **Consulter le Dashboard**
+    - `GET /api/dashboard/metrics?userId=1`
+
+---
+
+## 🔒 Sécurité
 
 - Authentification JWT avec expiration de 24 heures
 - Mots de passe hashés avec BCrypt
 - Protection CSRF désactivée (API REST)
 - CORS configuré pour accepter toutes les origines (à modifier en production)
-- Endpoints publics : `/api/auth/**` et `/api/init-admin`
+- Endpoints publics : `/api/auth/**`
 - Endpoints protégés : nécessitent un token JWT valide
 
-**Note:** Le mapping est `/api/auth/**` et non `/auth/**`. Assurez-vous d'utiliser le bon préfixe pour éviter les erreurs 403 Forbidden.
+**Note:** Le mapping est `/api/auth/**` et non `/auth/**`. Assurez-vous d'utiliser le bon préfixe.
 
-## Initialisation du Système
+---
 
-### Créer le compte Admin par défaut
-
-**IMPORTANT:** Avant toute utilisation, créez le compte admin par défaut :
-
-```http
-POST /api/auth/init-admin
-Content-Type: application/json
-
-{}
-```
-
-**Credentials créés:**
-- Email : `admin@internship.com`
-- Mot de passe : `Admin@2024`
-- Rôle : ADMIN
-- Status : ACTIVE
-
-Ce compte vous permettra de créer d'autres administrateurs, encadreurs et stagiaires.
-
-### Données de Test
-
-Le script `database/schema.sql` crée automatiquement :
-
-1. **Admin** (alternative)
-   - Email : `admin@example.com`
-   - Mot de passe : `password123`
-   - Rôle : ADMIN
-
-2. **Encadreur**
-   - Email : `encadreur@example.com`
-   - Mot de passe : `password123`
-   - Rôle : ENCADREUR
-
-3. **Stagiaire**
-   - Email : `stagiaire@example.com`
-   - Pas de mot de passe (compte PENDING)
-   - Rôle : STAGIAIRE
-
-## Tests avec Postman ou cURL
-
-### Exemple complet de flux
-
-1. Créer un stagiaire (avec le token de l'encadreur) :
-```bash
-curl -X POST http://localhost:8080/api/interns \
-  -H "Authorization: Bearer {token_encadreur}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "firstName": "Test",
-    "lastName": "User",
-    "phone": "0612345678",
-    "school": "Test School",
-    "department": "IT",
-    "startDate": "2025-01-15",
-    "endDate": "2025-06-15",
-    "encadreurId": 1
-  }'
-```
-
-2. Vérifier l'email :
-```bash
-curl -X POST http://localhost:8080/api/auth/check-email \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com"}'
-```
-
-3. Créer le mot de passe :
-```bash
-curl -X POST http://localhost:8080/api/auth/create-password \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "MyPassword123!"
-  }'
-```
-
-## Déploiement
+## 🚀 Déploiement
 
 Pour créer un fichier JAR exécutable :
 
@@ -312,7 +1208,9 @@ mvn clean package
 java -jar target/management-system-1.0.0.jar
 ```
 
-## Variables d'Environnement en Production
+---
+
+## 🌍 Variables d'Environnement en Production
 
 Modifiez ces valeurs pour la production :
 
@@ -329,6 +1227,8 @@ spring.datasource.password=votre_mot_de_passe
 # Modifier dans SecurityConfig.java
 ```
 
-## Support
+---
+
+## 📞 Support
 
 Pour toute question ou problème, contactez l'équipe de développement.

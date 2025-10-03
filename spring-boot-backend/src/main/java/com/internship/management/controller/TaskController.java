@@ -1,5 +1,6 @@
 package com.internship.management.controller;
 
+import com.internship.management.dto.ApiResponse;
 import com.internship.management.dto.TaskDTO;
 import com.internship.management.service.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -19,77 +20,77 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
-    public ResponseEntity<List<TaskDTO>> getAllTasks(
+    public ResponseEntity<ApiResponse<List<TaskDTO>>> getAllTasks(
             @RequestParam(required = false) Long projectId,
-            @RequestParam(required = false) Long userId, // ✅ renommé
+            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String status
     ) {
         if (projectId != null) {
-            return ResponseEntity.ok(taskService.getTasksByProject(projectId));
+            return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByProject(projectId)));
         }
         if (userId != null) {
-            return ResponseEntity.ok(taskService.getTasksByUser(userId)); // ✅ appel corrigé
+            return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByUser(userId)));
         }
         if (status != null) {
-            return ResponseEntity.ok(taskService.getTasksByStatus(status)); // ✅ status reste String
+            return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByStatus(status)));
         }
-        return ResponseEntity.ok(taskService.getAllTasks());
+        return ResponseEntity.ok(ApiResponse.success(taskService.getAllTasks()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<TaskDTO>> getTaskById(@PathVariable Long id) {
         try {
             TaskDTO task = taskService.getTaskById(id);
-            return ResponseEntity.ok(task);
+            return ResponseEntity.ok(ApiResponse.success(task));
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PostMapping
-    public ResponseEntity<TaskDTO> createTask(@RequestBody TaskDTO taskDTO) {
+    public ResponseEntity<ApiResponse<TaskDTO>> createTask(@RequestBody TaskDTO taskDTO) {
         try {
             TaskDTO createdTask = taskService.createTask(taskDTO);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Tâche créée avec succès", createdTask));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TaskDTO> updateTask(
+    public ResponseEntity<ApiResponse<TaskDTO>> updateTask(
             @PathVariable Long id,
             @RequestBody TaskDTO taskDTO
     ) {
         try {
             TaskDTO updatedTask = taskService.updateTask(id, taskDTO);
-            return ResponseEntity.ok(updatedTask);
+            return ResponseEntity.ok(ApiResponse.success("Tâche mise à jour avec succès", updatedTask));
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TaskDTO> updateTaskStatus(
+    public ResponseEntity<ApiResponse<TaskDTO>> updateTaskStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> request
     ) {
         try {
             String statusStr = request.get("status");
-            TaskDTO updatedTask = taskService.updateTaskStatus(id, statusStr); // ✅ envoie String directement
-            return ResponseEntity.ok(updatedTask);
+            TaskDTO updatedTask = taskService.updateTaskStatus(id, statusStr);
+            return ResponseEntity.ok(ApiResponse.success("Statut mis à jour avec succès", updatedTask));
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteTask(@PathVariable Long id) {
         try {
             taskService.deleteTask(id);
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(ApiResponse.success("Tâche supprimée avec succès", null));
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         }
     }
 }
