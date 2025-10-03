@@ -52,35 +52,34 @@ public class EncadreurService {
     }
 
     @Transactional
-    public UserDTO createEncadreur(UserDTO userDTO) {
-        if (userRepository.existsByEmail(userDTO.getEmail())) {
-            throw new RuntimeException("Email already exists");
-        }
-
-        String department = "INFORMATIQUE"; // département fixe
-
-        // Création du user
-        User user = new User();
-        user.setEmail(userDTO.getEmail());
-        user.setNom(userDTO.getNom());
-        user.setPrenom(userDTO.getPrenom());
-        user.setDepartment(department); // Défini ici
-        user.setPhone(userDTO.getPhone());
-        user.setRole(User.Role.ENCADREUR);
-        user.setAccountStatus(User.AccountStatus.PENDING);
-
-        User savedUser = userRepository.save(user);
-
-        // Création de l'encadreur
-        Encadreur encadreur = new Encadreur();
-        encadreur.setUser(savedUser);
-        encadreur.setDepartment(department);   // Défini ici explicitement
-        encadreur.setSpecialization(department); // facultatif
-        encadreurRepository.save(encadreur);
-
-        return convertToDTO(savedUser);
+public UserDTO createEncadreur(UserDTO userDTO) {
+    if (userRepository.existsByEmail(userDTO.getEmail())) {
+        throw new RuntimeException("Email already exists");
     }
 
+    if (userDTO.getDepartment() == null || userDTO.getDepartment().isEmpty()) {
+        throw new RuntimeException("Le champ 'department' est obligatoire");
+    }
+
+    User user = new User();
+    user.setEmail(userDTO.getEmail());
+    user.setNom(userDTO.getNom());
+    user.setPrenom(userDTO.getPrenom());
+    user.setDepartment(userDTO.getDepartment()); // Obligatoire
+    user.setPhone(userDTO.getPhone());
+    user.setRole(User.Role.ENCADREUR);
+    user.setAccountStatus(User.AccountStatus.PENDING);
+
+    User savedUser = userRepository.save(user);
+
+    Encadreur encadreur = new Encadreur();
+    encadreur.setUser(savedUser);
+    encadreur.setDepartment(userDTO.getDepartment()); // Obligatoire
+    encadreur.setSpecialization(userDTO.getDepartment()); // Facultatif
+    encadreurRepository.save(encadreur);
+
+    return convertToDTO(savedUser);
+}
 
 
 
