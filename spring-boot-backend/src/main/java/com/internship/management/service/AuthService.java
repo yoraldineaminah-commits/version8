@@ -144,6 +144,7 @@ public class AuthService {
 
         Encadreur encadreur = Encadreur.builder()
                 .user(user)
+                .department(request.getDepartement())
                 .specialization(request.getSpecialization() != null ?
                     request.getSpecialization() : request.getDepartement())
                 .build();
